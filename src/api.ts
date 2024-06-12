@@ -1,5 +1,7 @@
 import { error } from "./utils/utils.js";
 
+export type PressRelease = { date: string; title: string; text: string; url: string; state: string };
+
 export interface JsonValue {
     [key: string]: any;
 }
@@ -79,7 +81,7 @@ export function toUrlBody(params: JsonValue) {
 }
 
 export class Api {
-    static async hello() {
-        return apiGet<{ message: string }>("hello");
+    static async releases() {
+        return apiGet<PressRelease[]>("pressreleases");
     }
 }

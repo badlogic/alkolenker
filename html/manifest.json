@@ -1,7 +1,7 @@
 {
-    "name": "__app_name__",
-    "short_name": "__app_name__",
-    "description": "__app_description__",
+    "name": "alkolenker",
+    "short_name": "alkolenker",
+    "description": "Tracking von Alkolenkervorfällen pro Bundesland",
     "start_url": "/",
     "display": "standalone",
     "background_color": "#000c15",

@@ -7,43 +7,24 @@ import * as fs from "fs";
 import * as http from "http";
 import multer from "multer";
 import WebSocket, { WebSocketServer } from "ws";
-import { Pool } from "pg";
 import { sleep } from "../utils/utils.js";
-const upload = multer({ storage: multer.memoryStorage() });
+import { PressRelease } from "../api.js";
+import { fetchPressReleases } from "./extraction.js";
 
 const port = process.env.PORT ?? 3333;
-const dbName = process.env.DATABASE;
-if (!dbName) {
-    console.error("Environment variable DATABASE missing");
-    process.exit(-1);
-}
-const dbUser = process.env.DATABASE_USER;
-if (!dbUser) {
-    console.error("Environment variable DATABASE_USER missing");
-    process.exit(-1);
-}
-const dbPassword = process.env.DATABASE_PASSWORD;
-if (!dbPassword) {
-    console.error("Environment variable DATABASE_PASSWORD missing");
-    process.exit(-1);
-}
 
-const pool = new Pool({
-    host: "db",
-    database: dbName,
-    user: dbUser,
-    password: dbPassword,
-    port: 5432,
-});
+let pressReleases: PressRelease[] = [];
+const seenReleases = new Set<string>();
+const releaseKey = (release: PressRelease) => release.date + "-" + release.title;
 
 (async () => {
-    const result = await connectWithRetry(5, 3000);
-    if (result instanceof Error) {
-        process.exit(-1);
-    }
-
-    if (!fs.existsSync("docker/data")) {
-        fs.mkdirSync("docker/data");
+    if (fs.existsSync("/data/pressreleases.json")) {
+        // fs.unlinkSync("/data/pressreleases.json");
+        const result = JSON.parse(fs.readFileSync("/data/pressreleases.json", "utf-8")) as PressRelease[];
+        pressReleases.push(...result);
+        for (const release of result) {
+            seenReleases.add(releaseKey(release));
+        }
     }
 
     const app = express();
@@ -52,8 +33,8 @@ const pool = new Pool({
     app.use(compression());
     app.use(bodyParser.urlencoded({ extended: true }));
 
-    app.get("/api/hello", (req, res) => {
-        res.json({ message: "Hello world" });
+    app.get("/api/pressreleases", (req, res) => {
+        res.json(pressReleases);
     });
 
     const server = http.createServer(app);
@@ -62,29 +43,34 @@ const pool = new Pool({
     });
 
     setupLiveReload(server);
+
+    await update();
+    setInterval(update, 3600000);
 })();
 
-async function connectWithRetry(maxRetries = 5, interval = 2000) {
-    let retries = 0;
-    while (retries < maxRetries) {
-        try {
-            const client = await pool.connect();
-            try {
-                const result = await client.query("SELECT NOW()");
-                console.log("Query result:", result.rows);
-                return undefined; // Successful connection, exit the function
-            } finally {
-                client.release();
-            }
-        } catch (err) {
-            console.error("Connection attempt failed:", err);
-            retries++;
-            if (retries === maxRetries) {
-                return new Error("Failed to connect to the database after retries");
-            }
-            await sleep(interval);
+async function update() {
+    console.log("Fetching latest releases");
+    const urls = [
+        { url: "https://www.polizei.gv.at/vbg/presse/aussendungen/presse.aspx", state: "Vorarlberg" },
+        { url: "https://www.polizei.gv.at/tirol/presse/aussendungen/presse.aspx", state: "Tirol" },
+        { url: "https://www.polizei.gv.at/ktn/presse/aussendungen/presse.aspx", state: "Kärnten" },
+        { url: "https://www.polizei.gv.at/sbg/presse/aussendungen/presse.aspx", state: "Salzburg" },
+        { url: "https://www.polizei.gv.at/wien/presse/aussendungen/presse.aspx", state: "Wien" },
+        { url: "https://www.polizei.gv.at/ooe/presse/aussendungen/presse.aspx", state: "Oberösterreich" },
+        { url: "https://www.polizei.gv.at/stmk/presse/aussendungen/presse.aspx", state: "Steiermark" },
+        { url: "https://www.polizei.gv.at/bgld/presse/aussendungen/presse.aspx", state: "Burgenland" },
+        { url: "https://www.polizei.gv.at/noe/presse/aussendungen/presse.aspx", state: "Niederösterreich" },
+    ];
+    for (const url of urls) {
+        const releases = (await fetchPressReleases(url.url, url.state)).filter((release) => !seenReleases.has(releaseKey(release)));
+
+        for (const release of releases) {
+            seenReleases.add(releaseKey(release));
         }
+        console.log(releases);
+        pressReleases = [...releases, ...pressReleases];
     }
+    fs.writeFileSync("/data/pressreleases.json", JSON.stringify(pressReleases, null, 2));
 }
 
 function setupLiveReload(server: http.Server) {
