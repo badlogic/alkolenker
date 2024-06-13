@@ -62,13 +62,17 @@ async function update() {
         { url: "https://www.polizei.gv.at/noe/presse/aussendungen/presse.aspx", state: "Niederösterreich" },
     ];
     for (const url of urls) {
-        const releases = (await fetchPressReleases(url.url, url.state)).filter((release) => !seenReleases.has(releaseKey(release)));
+        try {
+            const releases = (await fetchPressReleases(url.url, url.state)).filter((release) => !seenReleases.has(releaseKey(release)));
 
-        for (const release of releases) {
-            seenReleases.add(releaseKey(release));
+            for (const release of releases) {
+                seenReleases.add(releaseKey(release));
+            }
+            console.log(releases);
+            pressReleases = [...releases, ...pressReleases];
+        } catch (e) {
+            console.log("Could not fetch " + url, e);
         }
-        console.log(releases);
-        pressReleases = [...releases, ...pressReleases];
     }
     fs.writeFileSync("/data/pressreleases.json", JSON.stringify(pressReleases, null, 2));
 }

@@ -121,7 +121,8 @@ export class MainPage extends LitElement {
 
     handleQuery() {
         this.foundReleases = this.releases.filter((release) => this.selectedStates.has(release.state));
-        this.query = prepareQuery(this.querySelector<HTMLInputElement>("#query")!.value);
+        const queryText = this.querySelector<HTMLInputElement>("#query")?.value;
+        this.query = prepareQuery(queryText ?? "alko");
         this.foundReleases = this.foundReleases.filter((release) => matchesQuery(this.query, release.text));
     }
 
