@@ -19,8 +19,12 @@ services:
             context: .
             dockerfile: Dockerfile
         stop_grace_period: 0s
+        env_file: .env
         environment:
             PORT: 3333
+            ALKOLENKER_DB: ${ALKOLENKER_DB}
+            ALKOLENKER_DB_USER: ${ALKOLENKER_DB_USER}
+            ALKOLENKER_DB_PASSWORD: ${ALKOLENKER_DB_PASSWORD}
         volumes:
             - ./data:/data
             - ../:/app

@@ -10,9 +10,16 @@ echo "{\"date\": \"$current_date\", \"commit\": \"$commit_hash\"}" > html/versio
 ssh -t $host "mkdir -p $host_dir/docker/data/postgres"
 rsync -avz --exclude node_modules --exclude .git --exclude data --exclude docker/data ./ $host:$host_dir
 
+# Create .env file on remote server in docker directory
+ssh $host "cat > $host_dir/docker/.env << 'EOF'
+ALKOLENKER_DB=$ALKOLENKER_DB
+ALKOLENKER_DB_USER=$ALKOLENKER_DB_USER
+ALKOLENKER_DB_PASSWORD=$ALKOLENKER_DB_PASSWORD
+EOF"
+
 if [ "$1" == "server" ]; then
     echo "Publishing client & server"
-    ssh -t $host "export ALKOLENKER_DB=$ALKOLENKER_DB && export ALKOLENKER_DB_USER=$ALKOLENKER_DB_USER && export ALKOLENKER_DB_PASSWORD=$ALKOLENKER_DB_PASSWORD && cd $host_dir && ./docker/control.sh stop && ./docker/control.sh start && ./docker/control.sh logs"
+    ssh -t $host "cd $host_dir && ./docker/control.sh stop && ./docker/control.sh start && ./docker/control.sh logs"
 else
     echo "Publishing client only"
 fi
